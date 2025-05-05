@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>차량 운행 등록</title>
+  <style>
+    body { font-family: "Noto Sans KR", sans-serif; background: #f5f5f5; padding: 1rem; }
+    h1 { text-align: center; margin-bottom: 1rem; }
+    .form-container {
+      background: #fff; padding: 1.5rem; max-width: 400px; margin: auto;
+      border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    label { display: block; margin-top: 1rem; font-weight: bold; }
+    select, input, button {
+      width: 100%; margin-top: 0.5rem; padding: 0.5rem; font-size: 1rem;
+      border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+    }
+    #custom-driver { display: none; }
+    button {
+      margin-top: 1.5rem; background: #3498db; color: #fff; border: none;
+      cursor: pointer; transition: background 0.3s;
+    }
+    button:hover { background: #2980b9; }
+    #status { margin-top: 1rem; text-align: center; color: green; }
+  </style>
+</head>
+<body>
+  <h1>차량 운행 등록</h1>
+  <div class="form-container">
+    <label for="driver-select">운행자</label>
+    <select id="driver-select">
+      <option value="가">가</option>
+      <option value="나">나</option>
+      <option value="다">다</option>
+      <option value="라">라</option>
+      <option value="마">마</option>
+      <option value="직접입력">직접입력</option>
+    </select>
+    <input type="text" id="custom-driver" placeholder="운행자 이름 입력" />
+
+    <label for="vehicle-select">차량번호</label>
+    <select id="vehicle-select">
+      <option value="1호">1호</option>
+      <option value="2호">2호</option>
+      <option value="3호">3호</option>
+      <option value="4호">4호</option>
+      <option value="5호">5호</option>
+    </select>
+
+    <button id="register-btn">등록</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbxLIyHQ-_X54X51nPTZuSbve2_5repS2cRhs_zmaRYqMTebsq9U_XjDfkCwP6pIo3VBjA/exec';
+    const driverSelect = document.getElementById('driver-select');
+    const customDriver = document.getElementById('custom-driver');
+    const vehicleSelect = document.getElementById('vehicle-select');
+    const registerBtn = document.getElementById('register-btn');
+    const statusEl = document.getElementById('status');
+
+    // '직접입력' 선택 시 텍스트박스 표시
+    driverSelect.addEventListener('change', () => {
+      if (driverSelect.value === '직접입력') {
+        customDriver.style.display = 'block';
+        customDriver.focus();
+      } else {
+        customDriver.style.display = 'none';
+      }
+    });
+
+    registerBtn.addEventListener('click', () => {
+      const driver = driverSelect.value === '직접입력'
+        ? customDriver.value.trim()
+        : driverSelect.value;
+      if (!driver) {
+        alert('운행자 이름을 입력해주세요.');
+        return;
+      }
+      const vehicle = vehicleSelect.value;
+      statusEl.textContent = '위치 정보를 가져오는 중입니다...';
+
+      if (!navigator.geolocation) {
+        statusEl.textContent = '이 브라우저는 Geolocation을 지원하지 않습니다.';
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(async pos => {
+        const now = new Date();
+        const date = now.toISOString().slice(0, 10);         // YYYY-MM-DD
+        const time = now.toTimeString().split(' ')[0];       // HH:MM:SS
+
+        const payload = {
+          date,
+          driver,
+          vehicle,
+          time,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude
+        };
+
+        try {
+          const res = await fetch(ENDPOINT, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            statusEl.textContent = '등록 완료되었습니다.';
+          } else {
+            statusEl.textContent = '등록 실패: ' + (result.message || '');
+          }
+        } catch (err) {
+          statusEl.textContent = '통신 오류: ' + err.message;
+        }
+      }, err => {
+        statusEl.textContent = 'GPS 오류: ' + err.message;
+      }, {
+        enableHighAccuracy: true,
+        timeout: 15000
+      });
+    });
+  </script>
+</body>
+</html>
